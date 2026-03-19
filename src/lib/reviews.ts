@@ -17,6 +17,38 @@ export interface Recommendation {
   category: string;
 }
 
+export interface LevelAssessment {
+  apparent: string;
+  matches: string;
+  advice: string;
+}
+
+export interface PositioningRewrite {
+  safe: string;
+  bold: string;
+}
+
+// New 9-dimension scores (Portfolio Surgeon v1.3)
+export interface ReviewScores {
+  positioning: number;
+  caseStudy: number;
+  visualDesign: number;
+  strategicDepth: number;
+  aiTools: number;
+  personality: number;
+  infoArchitecture: number;
+  copywriting: number;
+  accessibility: number;
+}
+
+// Legacy 4-dimension scores (backward compat)
+export interface LegacyScores {
+  layout: number;
+  typography: number;
+  hierarchy: number;
+  storytelling: number;
+}
+
 export interface ReviewData {
   id: string;
   name: string;
@@ -24,18 +56,55 @@ export interface ReviewData {
   date: string;
   focus: string;
   overall: number;
-  scores: {
-    layout: number;
-    typography: number;
-    hierarchy: number;
-    storytelling: number;
-  };
+  scores: ReviewScores | LegacyScores;
   summary: string;
   strengths: string[];
   improvements: string[];
   pages: ReviewPage[];
   recommendations: Recommendation[];
   categories: string[];
+  // v1.3 fields
+  pageType?: string;
+  competitivePosition?: string;
+  levelAssessment?: LevelAssessment;
+  positioningRewrite?: PositioningRewrite;
+  criticalGaps?: string[];
+}
+
+// --- Score dimension helpers ---
+
+const NEW_SCORE_KEYS: (keyof ReviewScores)[] = [
+  "positioning", "caseStudy", "visualDesign", "strategicDepth",
+  "aiTools", "personality", "infoArchitecture", "copywriting", "accessibility",
+];
+
+const LEGACY_SCORE_KEYS: (keyof LegacyScores)[] = [
+  "layout", "typography", "hierarchy", "storytelling",
+];
+
+export const SCORE_LABELS: Record<string, string> = {
+  positioning: "First Impression & Positioning",
+  caseStudy: "Case Study & Storytelling",
+  visualDesign: "Visual Design & Craft",
+  strategicDepth: "Strategic Depth",
+  aiTools: "AI & Modern Tools",
+  personality: "Personality & Differentiation",
+  infoArchitecture: "Information Architecture",
+  copywriting: "Copywriting Quality",
+  accessibility: "Accessibility",
+  layout: "Layout",
+  typography: "Typography",
+  hierarchy: "Visual Hierarchy",
+  storytelling: "Storytelling",
+};
+
+export function isNewScores(scores: ReviewScores | LegacyScores): scores is ReviewScores {
+  return "positioning" in scores;
+}
+
+export function getScoreEntries(scores: ReviewScores | LegacyScores): [string, number][] {
+  const keys = isNewScores(scores) ? NEW_SCORE_KEYS : LEGACY_SCORE_KEYS;
+  return keys.map((k) => [k, (scores as Record<string, number>)[k]]);
 }
 
 // --- Validation ---
@@ -55,38 +124,41 @@ export function validateReviewResponse(
 
   const d = data as Record<string, unknown>;
 
-  // Overall score
   if (!isNum(d.overall)) {
     return { valid: false, error: "Missing or invalid overall score." };
   }
 
-  // Sub-scores
   const scores = d.scores as Record<string, unknown> | undefined;
   if (!scores || typeof scores !== "object") {
     return { valid: false, error: "Missing scores object." };
   }
-  for (const key of ["layout", "typography", "hierarchy", "storytelling"]) {
+
+  const hasNew = NEW_SCORE_KEYS.every((k) => k in scores);
+  const hasLegacy = LEGACY_SCORE_KEYS.every((k) => k in scores);
+
+  if (!hasNew && !hasLegacy) {
+    return { valid: false, error: "Scores must have 9 new or 4 legacy dimensions." };
+  }
+
+  const keysToCheck = hasNew ? NEW_SCORE_KEYS : LEGACY_SCORE_KEYS;
+  for (const key of keysToCheck) {
     if (!isNum(scores[key])) {
       return { valid: false, error: `Invalid or missing score: ${key}.` };
     }
   }
 
-  // Summary
   if (typeof d.summary !== "string" || d.summary.length === 0) {
     return { valid: false, error: "Missing summary." };
   }
 
-  // Strengths (can be empty for edge cases like blank images)
   if (!Array.isArray(d.strengths)) {
     return { valid: false, error: "Missing strengths array." };
   }
 
-  // Improvements
   if (!Array.isArray(d.improvements)) {
     return { valid: false, error: "Missing improvements array." };
   }
 
-  // Pages
   if (!Array.isArray(d.pages)) {
     return { valid: false, error: "Missing pages array." };
   }
@@ -107,7 +179,6 @@ export function validateReviewResponse(
     }
   }
 
-  // Recommendations
   if (!Array.isArray(d.recommendations)) {
     return { valid: false, error: "Missing recommendations array." };
   }
@@ -134,18 +205,15 @@ export function saveReview(review: ReviewData): void {
     reviews.unshift(review);
   }
 
-  // Prune if over limit
   const trimmed = reviews.slice(0, MAX_REVIEWS);
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch {
-    // Quota exceeded — prune more aggressively and retry
     const minimal = trimmed.slice(0, 10);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
     } catch {
-      // Still failing — clear old data and save just this review
       localStorage.removeItem(STORAGE_KEY);
       localStorage.setItem(STORAGE_KEY, JSON.stringify([review]));
     }
@@ -178,4 +246,12 @@ export function getInitials(name: string): string {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+}
+
+export function deriveCategories(scores: ReviewScores | LegacyScores): string[] {
+  const entries = getScoreEntries(scores);
+  return entries
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([key]) => SCORE_LABELS[key] ?? key);
 }

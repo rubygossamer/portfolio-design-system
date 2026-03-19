@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { Check, AlertTriangle, FileSearch } from "lucide-react";
+import { Check, AlertTriangle, FileSearch, Target, User } from "lucide-react";
 import Link from "next/link";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Card } from "@/components/Card";
@@ -12,7 +12,12 @@ import { Tabs } from "@/components/Tabs";
 import { Accordion } from "@/components/Accordion";
 import { Skeleton } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
-import { getReview, type ReviewData } from "@/lib/reviews";
+import {
+  getReview,
+  getScoreEntries,
+  SCORE_LABELS,
+  type ReviewData,
+} from "@/lib/reviews";
 
 const severityBadge = {
   strong: { variant: "success" as const, label: "Strong" },
@@ -28,6 +33,25 @@ function OverviewTab({ review }: { review: ReviewData }) {
           {review.summary}
         </p>
       </Card>
+
+      {/* Critical Gaps */}
+      {review.criticalGaps && review.criticalGaps.length > 0 && (
+        <div>
+          <h3 className="font-display font-semibold text-base tracking-tight text-ink-primary mb-3">
+            Critical Gaps
+          </h3>
+          <Card className="border-error/30">
+            <div className="space-y-2">
+              {review.criticalGaps.map((gap, i) => (
+                <div key={i} className="flex items-start gap-2.5">
+                  <Target className="w-4 h-4 text-error shrink-0 mt-0.5" />
+                  <p className="text-sm text-ink-secondary">{gap}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
       <div>
         <h3 className="font-display font-semibold text-base tracking-tight text-ink-primary mb-3">
@@ -90,6 +114,25 @@ function PageByPageTab({ review }: { review: ReviewData }) {
 function RecommendationsTab({ review }: { review: ReviewData }) {
   return (
     <div className="space-y-3">
+      {/* Positioning Rewrite */}
+      {review.positioningRewrite && (
+        <Card className="border-acid/30 mb-6">
+          <h4 className="font-display font-semibold text-sm tracking-tight text-ink-primary mb-3">
+            Positioning Rewrite
+          </h4>
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-ink-muted uppercase tracking-wider mb-1">Safe / Professional</p>
+              <p className="text-sm text-ink-secondary italic">&ldquo;{review.positioningRewrite.safe}&rdquo;</p>
+            </div>
+            <div>
+              <p className="text-xs text-ink-muted uppercase tracking-wider mb-1">Bold / Opinionated</p>
+              <p className="text-sm text-ink-secondary italic">&ldquo;{review.positioningRewrite.bold}&rdquo;</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {review.recommendations.map((rec) => (
         <Card key={rec.priority} variant="interactive" className="flex items-start gap-4">
           <Badge variant={rec.priority <= 2 ? "acid" : "mist"} className="shrink-0 mt-0.5">
@@ -118,7 +161,6 @@ export default function ReviewDetailPage({
     setReview(getReview(id));
   }, [id]);
 
-  // Loading state
   if (review === undefined) {
     return (
       <div>
@@ -135,7 +177,6 @@ export default function ReviewDetailPage({
     );
   }
 
-  // Not found
   if (!review) {
     return (
       <div>
@@ -161,6 +202,8 @@ export default function ReviewDetailPage({
     );
   }
 
+  const scoreEntries = getScoreEntries(review.scores);
+
   return (
     <div>
       <Breadcrumb
@@ -177,9 +220,12 @@ export default function ReviewDetailPage({
           <h1 className="font-display font-bold text-2xl tracking-tight text-ink-primary">
             {review.name}
           </h1>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <p className="text-sm text-ink-muted">{review.date}</p>
             <Badge variant="mist">{review.focus}</Badge>
+            {review.pageType && (
+              <Badge variant="default">{review.pageType}</Badge>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -188,21 +234,50 @@ export default function ReviewDetailPage({
         </div>
       </div>
 
-      {/* Overall score */}
+      {/* Overall score + competitive position */}
       <Card variant="featured" className="mb-8">
         <div className="flex flex-col md:flex-row items-center gap-8">
-          <div className="shrink-0">
+          <div className="shrink-0 text-center">
             <Score variant="ring" value={review.overall} className="[&_svg]:w-20 [&_svg]:h-20" />
-            <p className="text-xs text-ink-muted text-center mt-2">Overall</p>
+            <p className="text-xs text-ink-muted mt-2">Overall</p>
+            {review.competitivePosition && (
+              <Badge variant="acid" className="mt-2">
+                {review.competitivePosition}
+              </Badge>
+            )}
           </div>
-          <div className="flex-1 w-full space-y-3">
-            <Score variant="bar" value={review.scores.layout} label="Layout" />
-            <Score variant="bar" value={review.scores.typography} label="Typography" />
-            <Score variant="bar" value={review.scores.hierarchy} label="Visual Hierarchy" />
-            <Score variant="bar" value={review.scores.storytelling} label="Storytelling" />
+          <div className="flex-1 w-full space-y-2.5">
+            {scoreEntries.map(([key, value]) => (
+              <Score
+                key={key}
+                variant="bar"
+                value={value}
+                label={SCORE_LABELS[key] ?? key}
+              />
+            ))}
           </div>
         </div>
       </Card>
+
+      {/* Level Assessment */}
+      {review.levelAssessment && (
+        <Card className="mb-8">
+          <div className="flex items-start gap-3">
+            <User className="w-5 h-5 text-mist shrink-0 mt-0.5" />
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-ink-primary">
+                Level Assessment: <span className="text-mist">{review.levelAssessment.apparent}</span>
+              </p>
+              <p className="text-sm text-ink-secondary">
+                {review.levelAssessment.matches}
+              </p>
+              <p className="text-sm text-ink-muted">
+                {review.levelAssessment.advice}
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Detailed feedback tabs */}
       <Tabs

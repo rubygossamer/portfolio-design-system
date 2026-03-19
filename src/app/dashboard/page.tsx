@@ -10,7 +10,7 @@ import { Score } from "@/components/Score";
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
-import { listReviews, type ReviewData } from "@/lib/reviews";
+import { listReviews, getScoreEntries, SCORE_LABELS, type ReviewData } from "@/lib/reviews";
 
 function computeStats(reviews: ReviewData[]) {
   const total = reviews.length;
@@ -22,11 +22,11 @@ function computeStats(reviews: ReviewData[]) {
   // Find top category by counting highest-scored category per review
   const catCounts: Record<string, number> = {};
   for (const r of reviews) {
-    const entries = Object.entries(r.scores) as [string, number][];
+    const entries = getScoreEntries(r.scores);
     const top = entries.sort((a, b) => b[1] - a[1])[0];
     if (top) {
-      const name = top[0].charAt(0).toUpperCase() + top[0].slice(1);
-      catCounts[name] = (catCounts[name] || 0) + 1;
+      const label = SCORE_LABELS[top[0]] ?? top[0];
+      catCounts[label] = (catCounts[label] || 0) + 1;
     }
   }
   const topCategory =

@@ -18,15 +18,34 @@ import {
   saveReview,
   generateId,
   getInitials,
+  deriveCategories,
   type ReviewData,
 } from "@/lib/reviews";
 
 const focusOptions = [
   { value: "full", label: "Full Review" },
-  { value: "layout", label: "Layout Only" },
-  { value: "typography", label: "Typography Only" },
-  { value: "hierarchy", label: "Visual Hierarchy" },
-  { value: "storytelling", label: "Storytelling" },
+  { value: "positioning", label: "Positioning & First Impression" },
+  { value: "caseStudy", label: "Case Study & Storytelling" },
+  { value: "visualDesign", label: "Visual Design & Craft" },
+  { value: "strategicDepth", label: "Strategic Depth" },
+  { value: "copywriting", label: "Copywriting Quality" },
+];
+
+const pageTypeOptions = [
+  { value: "auto", label: "Auto-detect" },
+  { value: "Homepage", label: "Homepage" },
+  { value: "Case Study", label: "Case Study" },
+  { value: "About", label: "About / Bio" },
+  { value: "Project Grid", label: "Work Overview / Grid" },
+  { value: "Behance/Dribbble", label: "Behance / Dribbble" },
+];
+
+const levelOptions = [
+  { value: "not-sure", label: "Not sure" },
+  { value: "Junior", label: "Junior" },
+  { value: "Mid", label: "Mid-level" },
+  { value: "Senior", label: "Senior" },
+  { value: "Lead-Manager", label: "Lead / Manager" },
 ];
 
 type ProcessingStep = "uploading" | "analyzing" | "scoring" | "generating";
@@ -71,6 +90,8 @@ export default function NewReviewPage() {
   const [url, setUrl] = useState("");
   const [context, setContext] = useState("");
   const [focus, setFocus] = useState("full");
+  const [pageType, setPageType] = useState("auto");
+  const [level, setLevel] = useState("not-sure");
 
   // Smooth progress interpolation
   const [smoothProgress, setSmoothProgress] = useState(0);
@@ -175,6 +196,8 @@ export default function NewReviewPage() {
           url: url || undefined,
           context: context || undefined,
           focus,
+          pageType: pageType !== "auto" ? pageType : undefined,
+          level: level !== "not-sure" ? level : undefined,
         }),
         signal: controller.signal,
       });
@@ -185,6 +208,9 @@ export default function NewReviewPage() {
         const data = await res.json().catch(() => ({}));
         const msg = (data as { error?: string }).error;
 
+        if (res.status === 422) {
+          throw new Error(msg || "This does not appear to be a design portfolio. Please upload a portfolio homepage, case study, or about page screenshot.");
+        }
         if (res.status === 413) {
           throw new Error("File is too large for processing. Please reduce file size or use a URL instead.");
         }
@@ -223,6 +249,11 @@ export default function NewReviewPage() {
         pages: data.pages,
         recommendations: data.recommendations,
         categories: deriveCategories(data.scores),
+        pageType: data.pageType,
+        competitivePosition: data.competitivePosition,
+        levelAssessment: data.levelAssessment ?? undefined,
+        positioningRewrite: data.positioningRewrite ?? undefined,
+        criticalGaps: data.criticalGaps,
       };
 
       saveReview(review);
@@ -369,6 +400,22 @@ export default function NewReviewPage() {
         </div>
 
         <Select
+          label="What page is this?"
+          options={pageTypeOptions}
+          id="page-type"
+          value={pageType}
+          onChange={(e) => setPageType(e.target.value)}
+        />
+
+        <Select
+          label="Your level"
+          options={levelOptions}
+          id="level"
+          value={level}
+          onChange={(e) => setLevel(e.target.value)}
+        />
+
+        <Select
           label="Review focus"
           options={focusOptions}
           id="focus"
@@ -389,10 +436,3 @@ export default function NewReviewPage() {
   );
 }
 
-function deriveCategories(scores: ReviewData["scores"]): string[] {
-  const entries = Object.entries(scores) as [string, number][];
-  return entries
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([key]) => key.charAt(0).toUpperCase() + key.slice(1));
-}
