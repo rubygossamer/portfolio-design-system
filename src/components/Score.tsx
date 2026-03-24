@@ -24,24 +24,26 @@ function ScoreRing({ value, max = 10, label, className }: ScoreProps) {
 
   return (
     <div className={cn("flex flex-col items-center gap-1.5", className)}>
-      <svg width={64} height={64} viewBox="0 0 64 64" className="-rotate-90">
-        <circle
-          cx={32} cy={32} r={radius}
-          fill="none" strokeWidth={4}
-          className="stroke-surface-subtle"
-        />
-        <circle
-          cx={32} cy={32} r={radius}
-          fill="none" strokeWidth={4}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className={cn(color.stroke, "transition-all duration-300")}
-        />
-      </svg>
-      <span className="absolute font-display font-bold text-lg text-ink-primary">
-        {value}
-      </span>
+      <div className="relative grid place-items-center w-16 h-16">
+        <svg width={64} height={64} viewBox="0 0 64 64" className="-rotate-90 col-start-1 row-start-1">
+          <circle
+            cx={32} cy={32} r={radius}
+            fill="none" strokeWidth={4}
+            className="stroke-surface-subtle"
+          />
+          <circle
+            cx={32} cy={32} r={radius}
+            fill="none" strokeWidth={4}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            className={cn(color.stroke, "transition-all duration-300")}
+          />
+        </svg>
+        <span className="col-start-1 row-start-1 font-display font-bold text-lg text-ink-primary">
+          {value}
+        </span>
+      </div>
       {label && <p className="text-xs text-ink-muted">{label}</p>}
     </div>
   );
@@ -73,9 +75,5 @@ function ScoreBar({ value, max = 10, label, className }: ScoreProps) {
 
 export function Score({ variant = "ring", ...props }: ScoreProps) {
   if (variant === "bar") return <ScoreBar {...props} />;
-  return (
-    <div className="relative flex items-center justify-center">
-      <ScoreRing {...props} />
-    </div>
-  );
+  return <ScoreRing {...props} />;
 }

@@ -6,17 +6,25 @@ import { Sidebar } from "@/components/Sidebar";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isDashboard = pathname.startsWith("/dashboard");
+  const isDesignSystem = pathname.startsWith("/design-system");
 
+  // Dashboard has its own layout
   if (isDashboard) {
     return <>{children}</>;
   }
 
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 min-w-0 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-8 py-12">{children}</div>
-      </main>
-    </div>
-  );
+  // Design system pages get the sidebar
+  if (isDesignSystem) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-8 py-12">{children}</div>
+        </main>
+      </div>
+    );
+  }
+
+  // Marketing, auth, and other pages — no shell wrapper
+  return <>{children}</>;
 }

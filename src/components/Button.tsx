@@ -1,12 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { type ButtonHTMLAttributes } from "react";
+import { type ButtonHTMLAttributes, type ReactElement, cloneElement, isValidElement } from "react";
 
 type Variant = "primary" | "secondary" | "ghost";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
+  /** Render as child element (e.g. Link) instead of <button> */
+  asChild?: boolean;
 }
 
 const variants: Record<Variant, string> = {
@@ -34,10 +36,19 @@ export function Button({
   variant = "primary",
   className,
   children,
+  asChild,
   ...props
 }: ButtonProps) {
+  const classes = cn(variants[variant], className);
+
+  if (asChild && isValidElement(children)) {
+    return cloneElement(children as ReactElement<Record<string, unknown>>, {
+      className: cn(classes, (children as ReactElement<{ className?: string }>).props.className),
+    });
+  }
+
   return (
-    <button className={cn(variants[variant], className)} {...props}>
+    <button className={classes} {...props}>
       {children}
     </button>
   );
