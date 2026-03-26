@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 export async function DELETE() {
   const { createClient } = await import("@/lib/supabase/server");
@@ -12,18 +13,30 @@ export async function DELETE() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Delete reviews first (cascade should handle this, but be explicit)
-  await supabase.from("reviews").delete().eq("user_id", user.id);
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    return NextResponse.json(
+      { error: "Server configuration error: missing service role key" },
+      { status: 500 }
+    );
+  }
 
-  // Delete profile (cascade from auth.users will also handle this)
-  await supabase.from("profiles").delete().eq("id", user.id);
+  // Admin client with service_role key to delete from auth.users
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  );
 
-  // Sign out the user's session
+  // Sign out first so the session cookie is cleared
   await supabase.auth.signOut();
 
-  // Note: Deleting the auth.users row requires a service_role key or
-  // Supabase edge function. For now we clear all user data and sign out.
-  // The auth row can be cleaned up via Supabase dashboard or a scheduled function.
+  // Delete the auth user — cascades to profiles and reviews via FK
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+
+  if (error) {
+    console.error("Failed to delete user:", user.id, error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ success: true });
 }

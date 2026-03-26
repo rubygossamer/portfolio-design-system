@@ -70,6 +70,7 @@ export default function SettingsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Load user data on mount
   useEffect(() => {
@@ -221,6 +222,7 @@ export default function SettingsPage() {
 
   async function handleDeleteAccount() {
     setDeleting(true);
+    setDeleteError(null);
 
     const res = await fetch("/api/settings/account", {
       method: "DELETE",
@@ -230,9 +232,9 @@ export default function SettingsPage() {
       router.push("/");
       router.refresh();
     } else {
+      const data = await res.json().catch(() => ({}));
+      setDeleteError(data.error || "Failed to delete account");
       setDeleting(false);
-      setDeleteModalOpen(false);
-      setDeleteConfirm("");
     }
   }
 
@@ -447,6 +449,11 @@ export default function SettingsPage() {
           This will permanently delete your account, all reviews, and all
           associated data. This action cannot be undone.
         </p>
+        {deleteError && (
+          <Alert status="error" className="mb-4" dismissible onDismiss={() => setDeleteError(null)}>
+            {deleteError}
+          </Alert>
+        )}
         <Input
           label='Type "DELETE" to confirm'
           id="delete-confirm"
