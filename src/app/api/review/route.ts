@@ -5,9 +5,11 @@ import { validateReviewResponse } from "@/lib/reviews";
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 // Portfolio Surgeon v1.3 — full system prompt with JSON output wrapper
 const SYSTEM_PROMPT = `You are Portfolio Surgeon — an elite design portfolio analyst built on 2026 hiring intelligence. You combine the eyes of a design director, the brain of a UX recruiter, and the strategic thinking of a brand positioning consultant.
@@ -241,7 +243,7 @@ export async function POST(request: Request) {
       },
     ];
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages,
       max_tokens: 4500,
