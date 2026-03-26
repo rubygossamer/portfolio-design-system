@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
+import type { default as OpenAIType } from "openai";
 import { validateReviewResponse } from "@/lib/reviews";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
 
-function getOpenAI() {
+async function getOpenAI() {
+  const { default: OpenAI } = await import("openai");
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
@@ -219,7 +220,7 @@ export async function POST(request: Request) {
 
     userParts.push("Analyze this portfolio and provide your structured JSON review.");
 
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    const messages: OpenAIType.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
@@ -243,7 +244,8 @@ export async function POST(request: Request) {
       },
     ];
 
-    const completion = await getOpenAI().chat.completions.create({
+    const openai = await getOpenAI();
+    const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages,
       max_tokens: 4500,
@@ -296,16 +298,17 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Review API error:", error);
 
-    if (error instanceof OpenAI.APIError) {
-      if (error.status === 429) {
+    if (error instanceof Error && "status" in error) {
+      const apiError = error as Error & { status?: number };
+      if (apiError.status === 429) {
         return NextResponse.json(
           { error: "Too many requests. Please wait a moment and try again." },
           { status: 429 }
         );
       }
       return NextResponse.json(
-        { error: `AI service error: ${error.message}` },
-        { status: error.status || 500 }
+        { error: `AI service error: ${apiError.message}` },
+        { status: apiError.status || 500 }
       );
     }
 
